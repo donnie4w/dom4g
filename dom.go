@@ -67,7 +67,7 @@ func LoadByXml(xmlstr string) (current *Element, err error) {
 		case xml.CharData:
 			current.Value = string([]byte(token))
 		default:
-			panic("d!")
+			panic("parse xml fail!")
 		}
 	}
 	return current, nil
