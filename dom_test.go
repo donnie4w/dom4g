@@ -1,4 +1,4 @@
-package dom
+package dom4g
 
 import (
 	"fmt"
