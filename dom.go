@@ -81,7 +81,7 @@ func (t *Element) ToString() string {
 			sattr = fmt.Sprint(sattr, " ", att.Name, "=", "\"", att.Value, "\"")
 		}
 	}
-	s = s + sattr + ">"
+	s = fmt.Sprint(s, sattr, ">")
 	if len(t.childs) > 0 {
 		for _, v := range t.childs {
 			el := v.(*Element)
