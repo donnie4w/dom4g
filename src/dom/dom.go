@@ -1,0 +1,207 @@
+package dom
+
+import (
+	"encoding/xml"
+	"fmt"
+	"strings"
+)
+
+type E interface {
+	ToString() string
+}
+
+type Attr struct {
+	Name  string
+	Value string
+}
+
+type Element struct {
+	Name       string
+	Value      string
+	Attrs      []*Attr
+	childs     []E
+	parent     E
+	elementmap map[string][]E
+	attrmap    map[string]string
+}
+
+func LoadByXml(xmlstr string) (*Element, error) {
+	defer func() {
+		if er := recover(); er != nil {
+			fmt.Println("err", er)
+		}
+	}()
+	s := strings.NewReader(xmlstr)
+	decoder := xml.NewDecoder(s)
+	var current *Element
+	isRoot := true
+	for t, err := decoder.Token(); err == nil; t, err = decoder.Token() {
+		switch token := t.(type) {
+		case xml.StartElement:
+			el := new(Element)
+			el.Name = token.Name.Local
+			el.Attrs = make([]*Attr, 0)
+			el.childs = make([]E, 0)
+			el.elementmap = make(map[string][]E, 0)
+			el.attrmap = make(map[string]string, 0)
+			for _, a := range token.Attr {
+				ar := new(Attr)
+				ar.Name = a.Name.Local
+				ar.Value = a.Value
+				el.Attrs = append(el.Attrs, ar)
+				el.attrmap[ar.Name] = ar.Value
+			}
+			if isRoot {
+				isRoot = false
+			} else {
+				current.childs = append(current.childs, el)
+				current.elementmap[el.Name] = append(current.elementmap[el.Name], el)
+				el.parent = current
+			}
+			current = el
+		case xml.EndElement:
+			if current.parent != nil {
+				current = current.parent.(*Element)
+			}
+		case xml.CharData:
+			current.Value = string([]byte(token))
+		default:
+			panic("parse xml fail!")
+		}
+	}
+	return current, nil
+}
+
+func (t *Element) ToString() string {
+	s := fmt.Sprint("<", t.Name)
+	sattr := ""
+	if len(t.Attrs) > 0 {
+		for _, att := range t.Attrs {
+			sattr = fmt.Sprint(sattr, " ", att.Name, "=", "\"", att.Value, "\"")
+		}
+	}
+	s = s + sattr + ">"
+	if len(t.childs) > 0 {
+		for _, v := range t.childs {
+			el := v.(*Element)
+			s = fmt.Sprint(s, el.ToString())
+		}
+		return fmt.Sprint(s, t.Value, "</", t.Name, ">")
+	} else {
+		return toStr(t)
+	}
+}
+
+func toStr(t *Element) string {
+	sattr := ""
+	if len(t.Attrs) > 0 {
+		for _, att := range t.Attrs {
+			sattr = fmt.Sprint(sattr, " ", att.Name, "=", "\"", att.Value, "\"")
+		}
+	}
+	return fmt.Sprint("<", t.Name, sattr, ">", t.Value, "</", t.Name, ">")
+}
+
+func (t *Element) Node(name string) *Element {
+	es, ok := t.elementmap[name]
+	if ok {
+		el := es[0]
+		return el.(*Element)
+	} else {
+		return nil
+	}
+}
+
+func (t *Element) Nodes(name string) []*Element {
+	es, ok := t.elementmap[name]
+	if ok {
+		ret := make([]*Element, len(es))
+		for i, v := range es {
+			ret[i] = v.(*Element)
+		}
+		return ret
+	} else {
+		return nil
+	}
+}
+
+func (t *Element) AttrValue(name string) (string, bool) {
+	v, ok := t.attrmap[name]
+	if ok {
+		return v, true
+	} else {
+		return "", false
+	}
+}
+
+func (t *Element) AddAttr(name, value string) {
+	t.attrmap[name] = value
+	isExist := false
+	for _, v := range t.Attrs {
+		if v.Name == name {
+			v.Value = value
+			isExist = true
+		}
+	}
+	if !isExist {
+		t.Attrs = append(t.Attrs, &Attr{name, value})
+	}
+}
+
+func (t *Element) RemoveAttr(name string) bool {
+	_, ok := t.attrmap[name]
+	if ok {
+		delete(t.attrmap, name)
+		newAs := make([]*Attr, 0)
+		for _, v := range t.Attrs {
+			if v.Name != name {
+				newAs = append(newAs, v)
+			}
+		}
+		t.Attrs = newAs
+		return true
+	} else {
+		return false
+	}
+}
+
+func (t *Element) AllNodes() []*Element {
+	es := t.childs
+	if len(es) > 0 {
+		ret := make([]*Element, len(es))
+		for i, v := range es {
+			ret[i] = v.(*Element)
+		}
+		return ret
+	} else {
+		return nil
+	}
+}
+
+func (t *Element) RemoveNode(name string) bool {
+	_, ok := t.elementmap[name]
+	if ok {
+		delete(t.elementmap, name)
+		newCs := make([]E, 0)
+		for _, v := range t.childs {
+			if v.(*Element).Name != name {
+				newCs = append(newCs, v)
+			}
+		}
+		t.childs = newCs
+		return true
+	} else {
+		return false
+	}
+}
+
+func (t *Element) AddNode(el *Element) {
+	t.childs = append(t.childs, el)
+	el.parent = t
+	t.elementmap[el.Name] = append(t.elementmap[el.Name], el)
+}
+
+func (t *Element) AddNodeByString(xmlstr string) {
+	el, _ := LoadByXml(xmlstr)
+	t.AddNode(el)
+}
