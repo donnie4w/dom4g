@@ -2,6 +2,7 @@ package dom
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -25,17 +26,17 @@ type Element struct {
 	attrmap    map[string]string
 }
 
-func LoadByXml(xmlstr string) (*Element, error) {
+func LoadByXml(xmlstr string) (current *Element, err error) {
 	defer func() {
 		if er := recover(); er != nil {
-			fmt.Println("err", er)
+			fmt.Println(er)
+			err = errors.New("xml load error!")
 		}
 	}()
 	s := strings.NewReader(xmlstr)
 	decoder := xml.NewDecoder(s)
-	var current *Element
 	isRoot := true
-	for t, err := decoder.Token(); err == nil; t, err = decoder.Token() {
+	for t, er := decoder.Token(); er == nil; t, er = decoder.Token() {
 		switch token := t.(type) {
 		case xml.StartElement:
 			el := new(Element)
@@ -66,7 +67,7 @@ func LoadByXml(xmlstr string) (*Element, error) {
 		case xml.CharData:
 			current.Value = string([]byte(token))
 		default:
-			panic("parse xml fail!")
+			panic("d!")
 		}
 	}
 	return current, nil
