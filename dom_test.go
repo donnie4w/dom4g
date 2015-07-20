@@ -120,8 +120,9 @@ func TestLength(t *testing.T) {
 	fmt.Println(e.NodesLength())            //打印e节点子节点个数     1
 	fmt.Println(e.DocLength())              //打印e节点所在整个文档节点个数  7
 	el.AddNodeByString(`<h><i>来了吗</i></h>`) //增加2个节点
-	el.AddNode(NewElement("g", "新增"))       //增加1个节点
-	fmt.Println(el.DocLength())             //10
+	newel := NewElement("g", "新增的g值")
+	el.AddNode(newel)           //增加1个节点
+	fmt.Println(el.DocLength()) //10
 	fmt.Println(el.ToXML())
 	el.RemoveNode("g") //删除一个节点               // 9
 	fmt.Println(el.DocLength())
@@ -133,4 +134,26 @@ func TestLength(t *testing.T) {
 	i.RemoveNode("j")
 	fmt.Println(i.DocLength()) // 9
 	fmt.Println(i.ToXML())
+}
+
+// 2014-11-24
+// test GetNodeByPath()
+func TestGetByPath(t *testing.T) {
+	fmt.Println()
+	fmt.Println("-----------------------------TestGetByPath---------------------------------")
+	s := `<a Age="10"><b>wu</b><c name="hi">xiao</c><d>dong</d><d>wxd</d><e><f>hello</f></e></a>`
+	el, _ := LoadByXml(s)
+	b := el.GetNodeByPath("a/e/f")
+	fmt.Println("a/e/f", b.Name(), ":", b.Value)
+	fmt.Println(el.ToString())
+	bs := el.GetNodesByPath("a/d")
+	fmt.Println(bs[0].Value, bs[1].Value)
+}
+
+func TestNew(t *testing.T) {
+	fmt.Println()
+	fmt.Println("-----------------------------TestNewElement---------------------------------")
+	el := NewElement("a", "a")
+	fmt.Println(el.ToString())
+	fmt.Println(el.ToXML())
 }

@@ -123,8 +123,11 @@ func (t *Element) Name() string {
 	return t.name
 }
 
-func NewElement(elementName, elementValue string) *Element {
-	return &Element{name: elementName, Value: elementValue, Attrs: make([]*Attr, 0), childs: make([]E, 0), elementmap: make(map[string][]E, 0), attrmap: make(map[string]string, 0), lc: new(sync.RWMutex), isSync: false}
+func NewElement(elementName, elementValue string) (el *Element) {
+	el = &Element{name: elementName, Value: elementValue, Attrs: make([]*Attr, 0), childs: make([]E, 0), elementmap: make(map[string][]E, 0), attrmap: make(map[string]string, 0), lc: new(sync.RWMutex), isSync: false}
+	el.root = el
+	el.r = el
+	return
 }
 
 func (t *Element) _string() string {
@@ -174,6 +177,62 @@ func (t *Element) Node(name string) *Element {
 	} else {
 		return nil
 	}
+}
+
+func (t *Element) GetNodeByPath(path string) *Element {
+	if t._root().isSync {
+		t._root().lc.RLock()
+		defer t._root().lc.RUnlock()
+	} else {
+		rt := t.r.(*Element)
+		rt.lc.RLock()
+		defer rt.lc.RUnlock()
+	}
+	paths := strings.Split(path, "/")
+	if paths != nil && len(paths) > 0 {
+		e := t
+		for i, p := range paths {
+			if i == 0 {
+				if e.Name() == p {
+					continue
+				} else {
+					return nil
+				}
+			}
+			e = e.Node(p)
+			if e == nil {
+				return nil
+			}
+		}
+		return e
+	}
+	return nil
+}
+
+func (t *Element) GetNodesByPath(path string) []*Element {
+	if t._root().isSync {
+		t._root().lc.RLock()
+		defer t._root().lc.RUnlock()
+	} else {
+		rt := t.r.(*Element)
+		rt.lc.RLock()
+		defer rt.lc.RUnlock()
+	}
+	paths := strings.Split(path, "/")
+	if paths != nil {
+		length := len(paths)
+		if length > 0 {
+			if length == 1 {
+				return t.Nodes(paths[0])
+			}
+			d_name := paths[length-1]
+			d_name_len := len(d_name)
+			sup_nodepath := path[:length-d_name_len]
+			sup_node := t.GetNodeByPath(sup_nodepath)
+			return sup_node.Nodes(d_name)
+		}
+	}
+	return nil
 }
 
 // return child element length
