@@ -85,6 +85,9 @@ func LoadByStream(r io.Reader) (current *Element, err error) {
 			}
 		case xml.CharData:
 			current.Value = string([]byte(token))
+		case xml.Comment:
+		case xml.Directive:
+		case xml.ProcInst:
 		default:
 			panic("parse xml fail!")
 		}
