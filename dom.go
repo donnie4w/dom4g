@@ -8,17 +8,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"runtime/debug"
 	"strings"
 	"sync"
 )
 
-const _VAR = "1.0.1"
+const _VAR = "1.0.2"
 
 type E interface {
 	ToString() string
 }
 
 type Attr struct {
+	space string
 	name  string
 	Value string
 }
@@ -28,6 +30,8 @@ func (a *Attr) Name() string {
 }
 
 type Element struct {
+	head       string
+	space      string
 	name       string
 	Value      string
 	Attrs      []*Attr
@@ -45,15 +49,18 @@ func LoadByStream(r io.Reader) (current *Element, err error) {
 	defer func() {
 		if er := recover(); er != nil {
 			fmt.Println(er)
+			fmt.Println(string(debug.Stack()))
 			err = errors.New("xml load error!")
 		}
 	}()
 	decoder := xml.NewDecoder(r)
 	isRoot := true
+	head := ""
 	for t, er := decoder.Token(); er == nil; t, er = decoder.Token() {
 		switch token := t.(type) {
 		case xml.StartElement:
 			el := new(Element)
+			el.space = space(token.Name.Space)
 			el.name = token.Name.Local
 			el.Attrs = make([]*Attr, 0)
 			el.childs = make([]E, 0)
@@ -64,6 +71,7 @@ func LoadByStream(r io.Reader) (current *Element, err error) {
 			el.isSync = false
 			for _, a := range token.Attr {
 				ar := new(Attr)
+				ar.space = space(a.Name.Space)
 				ar.name = a.Name.Local
 				ar.Value = a.Value
 				el.Attrs = append(el.Attrs, ar)
@@ -84,11 +92,20 @@ func LoadByStream(r io.Reader) (current *Element, err error) {
 				current = current.parent.(*Element)
 			}
 		case xml.CharData:
-			current.Value = string([]byte(token))
+			if token != nil && current != nil {
+				current.Value = string([]byte(token.Copy()))
+			}
+		case xml.Comment:
+			//			fmt.Println("xml===>1", string(token.Copy()))
+		case xml.Directive:
+			//			fmt.Println("xml===>2", string(token.Copy()))
+		case xml.ProcInst:
+			head = fmt.Sprint(`<?`, token.Copy().Target, ` `, string(token.Copy().Inst), `?>`)
 		default:
 			panic("parse xml fail!")
 		}
 	}
+	current.Root().head = head
 	return current, nil
 }
 
@@ -123,6 +140,14 @@ func (t *Element) Name() string {
 	return t.name
 }
 
+func (t *Element) Head() string {
+	if t._root().isSync {
+		t._root().lc.RLock()
+		defer t._root().lc.RUnlock()
+	}
+	return t.head
+}
+
 func NewElement(elementName, elementValue string) (el *Element) {
 	el = &Element{name: elementName, Value: elementValue, Attrs: make([]*Attr, 0), childs: make([]E, 0), elementmap: make(map[string][]E, 0), attrmap: make(map[string]string, 0), lc: new(sync.RWMutex), isSync: false}
 	el.root = el
@@ -131,11 +156,19 @@ func NewElement(elementName, elementValue string) (el *Element) {
 }
 
 func (t *Element) _string() string {
-	s := fmt.Sprint("<", t.name)
+	elementname := t.name
+	if t.space != "" {
+		elementname = fmt.Sprint(t.space, ":", elementname)
+	}
+	s := fmt.Sprint("<", elementname)
 	sattr := ""
 	if len(t.Attrs) > 0 {
 		for _, att := range t.Attrs {
-			sattr = fmt.Sprint(sattr, " ", att.name, "=", "\"", att.Value, "\"")
+			attrname := att.name
+			if att.space != "" {
+				attrname = fmt.Sprint(att.space, ":", attrname)
+			}
+			sattr = fmt.Sprint(sattr, " ", attrname, "=", "\"", att.Value, "\"")
 		}
 	}
 	s = fmt.Sprint(s, sattr, ">")
@@ -144,7 +177,7 @@ func (t *Element) _string() string {
 			el := v.(*Element)
 			s = fmt.Sprint(s, el._string())
 		}
-		return fmt.Sprint(s, t.Value, "</", t.name, ">")
+		return fmt.Sprint(s, t.Value, "</", elementname, ">", "\n")
 	} else {
 		return toStr(t)
 	}
@@ -154,7 +187,11 @@ func toStr(t *Element) string {
 	sattr := ""
 	if len(t.Attrs) > 0 {
 		for _, att := range t.Attrs {
-			sattr = fmt.Sprint(sattr, " ", att.name, "=", "\"", att.Value, "\"")
+			attrname := att.name
+			if att.space != "" {
+				attrname = fmt.Sprint(att.space, ":", attrname)
+			}
+			sattr = fmt.Sprint(sattr, " ", attrname, "=", "\"", att.Value, "\"")
 		}
 	}
 	return fmt.Sprint("<", t.name, sattr, ">", t.Value, "</", t.name, ">")
@@ -340,7 +377,7 @@ func (t *Element) AddAttr(name, value string) {
 		}
 	}
 	if !isExist {
-		t.Attrs = append(t.Attrs, &Attr{name, value})
+		t.Attrs = append(t.Attrs, &Attr{"", name, value})
 	}
 }
 
@@ -524,4 +561,12 @@ func (t *Element) SyncToXml() string {
 		t._root().isSync = false
 	}()
 	return t._root()._string()
+}
+
+func space(spacename string) string {
+	i := strings.LastIndex(spacename, "/")
+	if i > 0 {
+		spacename = spacename[i+1:]
+	}
+	return spacename
 }

@@ -157,3 +157,13 @@ func TestNew(t *testing.T) {
 	fmt.Println(el.ToString())
 	fmt.Println(el.ToXML())
 }
+
+func TestCDATA(t *testing.T) {
+	fmt.Println()
+	fmt.Println("-----------------------------TestCDATA---------------------------------")
+	s := `<a xmlns:android="http://schemas.android.com/apk/res/android"><![CDATA[<b><![CDATA[abc]]></b>]]></a>`
+	el, _ := LoadByXml(s)
+	b := el.GetNodeByPath("a")
+	fmt.Println(el.ToString())
+	fmt.Println(b.ToString())
+}
