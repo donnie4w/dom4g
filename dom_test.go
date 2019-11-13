@@ -86,7 +86,7 @@ ToString()  & ToXML()
 func TestToString_ToXML(t *testing.T) {
 	fmt.Println()
 	fmt.Println("-----------------------------TestToString_ToXML---------------------------------")
-	s := `<a Age="10"><b>wu</b><c name="hi">xiao</c><d>dong</d><d>wxd</d><e><f>hello</f></e></a>`
+	s := `<a Age="10"><![CDATA[sssss]]><b>wu</b><c name="hi">xiao</c><d>dong</d><d>wxd</d><e><f>hello</f></e></a>`
 	el, _ := LoadByXml(s)
 	f := el.Node("e").Node("f")
 	fmt.Println(el.ToString())

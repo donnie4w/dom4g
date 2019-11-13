@@ -177,10 +177,14 @@ func (t *Element) _string() string {
 			el := v.(*Element)
 			s = fmt.Sprint(s, el._string())
 		}
-		return fmt.Sprint(s, t.Value, "</", elementname, ">", "\n")
-	} else {
-		return toStr(t)
+		//<![CDATA[]]>
+		value := ""
+		if t.Value != "" {
+			value = "<![CDATA[" + t.Value + "]]>"
+		}
+		return fmt.Sprint(s, value, "</", elementname, ">", "\n")
 	}
+	return toStr(t)
 }
 
 func toStr(t *Element) string {
