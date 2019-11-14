@@ -4,6 +4,7 @@
 package dom4g
 
 import (
+	"bytes"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -177,7 +178,7 @@ func (t *Element) _string() string {
 			el := v.(*Element)
 			s = fmt.Sprint(s, el._string())
 		}
-		return fmt.Sprint(s, t.Value, "</", elementname, ">", "\n")
+		return fmt.Sprint(s, processValue(t.Value), "</", elementname, ">", "\n")
 	} else {
 		return toStr(t)
 	}
@@ -194,7 +195,13 @@ func toStr(t *Element) string {
 			sattr = fmt.Sprint(sattr, " ", attrname, "=", "\"", att.Value, "\"")
 		}
 	}
-	return fmt.Sprint("<", t.name, sattr, ">", t.Value, "</", t.name, ">")
+	return fmt.Sprint("<", t.name, sattr, ">", processValue(t.Value), "</", t.name, ">")
+}
+
+func processValue(val string) string {
+	var buf bytes.Buffer
+	xml.EscapeText(&buf, []byte(val))
+	return buf.String()
 }
 
 //return child element "name"
