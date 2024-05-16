@@ -8,7 +8,7 @@ import (
 func TestAdd(t *testing.T) {
 	fmt.Println()
 	fmt.Println("-----------------------------TestAdd---------------------------------")
-	s := `<a Age="10"><b>wu</b><c name="hi">xiao</c><d>dong</d><d>wxd</d><e><f>hello</f></e></a>`
+	s := `<?xmlversion="1.0" encode="utf-8"?><a Age="10"><b>wu</b><c name="hi">xiao</c><d>dong</d><d>wxd</d><e><f>hello</f></e></a>`
 	el, err := LoadByXml(s)
 	if err != nil {
 		fmt.Println("err", err)
