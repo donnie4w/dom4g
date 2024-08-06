@@ -4,6 +4,7 @@
 package dom4g
 
 import (
+	"bytes"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 const _VAR = "1.0.2"
@@ -177,7 +179,7 @@ func (t *Element) _string() string {
 			el := v.(*Element)
 			s = fmt.Sprint(s, el._string())
 		}
-		return fmt.Sprint(s, t.Value, "</", elementname, ">", "\n")
+		return fmt.Sprint(s, processValue(t.Value), "</", elementname, ">", "\n")
 	} else {
 		return toStr(t)
 	}
@@ -194,7 +196,92 @@ func toStr(t *Element) string {
 			sattr = fmt.Sprint(sattr, " ", attrname, "=", "\"", att.Value, "\"")
 		}
 	}
-	return fmt.Sprint("<", t.name, sattr, ">", t.Value, "</", t.name, ">")
+	return fmt.Sprint("<", t.name, sattr, ">", processValue(t.Value), "</", t.name, ">")
+}
+
+func processValue(val string) string {
+	valBs := []byte(val)
+	if xmlCharValidate(valBs) {
+		return val
+	}
+	var buf bytes.Buffer
+	if err := emitCDATA(&buf, valBs); err != nil {
+		return ""
+	}
+	return buf.String()
+}
+
+func xmlCharValidate(s []byte) bool {
+	for i := 0; i < len(s); {
+		r, width := utf8.DecodeRune(s[i:])
+		i += width
+		switch r {
+		case '"':
+			return false
+		case '\'':
+			return false
+		case '&':
+			return false
+		case '<':
+			return false
+		case '>':
+			return false
+			// case '\t':
+			// 	return false
+			// case '\n':
+			// 	return false
+			// case '\r':
+			// 	return false
+		}
+	}
+	return true
+}
+
+// func isInCharacterRange(r rune) (inrange bool) {
+// 	return r == 0x09 ||
+// 		r == 0x0A ||
+// 		r == 0x0D ||
+// 		r >= 0x20 && r <= 0xD7FF ||
+// 		r >= 0xE000 && r <= 0xFFFD ||
+// 		r >= 0x10000 && r <= 0x10FFFF
+// }
+
+var (
+	cdataStart  = []byte("<![CDATA[")
+	cdataEnd    = []byte("]]>")
+	cdataEscape = []byte("]]]]><![CDATA[>")
+)
+
+// emitCDATA writes to w the CDATA-wrapped plain text data s.
+// It escapes CDATA directives nested in s.
+func emitCDATA(w io.Writer, s []byte) error {
+	if len(s) == 0 {
+		return nil
+	}
+	if _, err := w.Write(cdataStart); err != nil {
+		return err
+	}
+	for {
+		i := bytes.Index(s, cdataEnd)
+		if i >= 0 && i+len(cdataEnd) <= len(s) {
+			// Found a nested CDATA directive end.
+			if _, err := w.Write(s[:i]); err != nil {
+				return err
+			}
+			if _, err := w.Write(cdataEscape); err != nil {
+				return err
+			}
+			i += len(cdataEnd)
+		} else {
+			if _, err := w.Write(s); err != nil {
+				return err
+			}
+			break
+		}
+		s = s[i:]
+	}
+	_, err := w.Write(cdataEnd)
+	return err
 }
 
 //return child element "name"
