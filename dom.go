@@ -264,7 +264,7 @@ func (t *Element) GetNodesByPath(path string) []*Element {
 			}
 			d_name := paths[length-1]
 			d_name_len := len(d_name)
-			sup_nodepath := path[:length-d_name_len]
+			sup_nodepath := path[:len(path)-d_name_len-1]
 			sup_node := t.GetNodeByPath(sup_nodepath)
 			return sup_node.Nodes(d_name)
 		}
